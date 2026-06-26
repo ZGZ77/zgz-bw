@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>冰蛙目标 · 帮派监控</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdn.staticfile.org/xlsx/0.17.5/xlsx.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0b0f1a;
+            --bg-secondary: #131a2b;
+            --bg-card: #1a2332;
+            --accent: #e94560;
+            --accent-light: #ff6b81;
+            --text-primary: #eaeaea;
+            --text-secondary: #a0aec0;
+            --border: #2d3748;
+            --online: #38a169;
+            --idle: #dd6b20;
+            --offline: #718096;
+            --hospital-soon-bg: #d69e2e;
+            --hospital-later-bg: #e53e3e;
+            --radius: 12px;
+            --shadow: 0 4px 24px rgba(0,0,0,0.3);
+            --transition: 0.2s ease;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 12px;
+            min-height: 100vh;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .container { max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+        .header {
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            background: var(--bg-card); padding: 14px 18px; border-radius: var(--radius); box-shadow: var(--shadow);
+        }
+        .header h1 { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff; }
+        .header .subtitle { font-size: 0.8rem; color: var(--text-secondary); font-weight: 400; margin-left: 4px; }
+        .refresh-status { margin-left: auto; font-size: 0.85rem; padding: 4px 12px; border-radius: 20px; background: rgba(233,69,96,0.15); color: var(--accent-light); font-weight: 600; }
+        .collapsible-section { display: flex; flex-direction: column; gap: 16px; }
+        .controls {
+            background: var(--bg-card); padding: 16px; border-radius: var(--radius); box-shadow: var(--shadow);
+            display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+        }
+        .controls label { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 0.9rem; font-weight: 500; }
+        .controls input[type="text"], .controls input[type="number"] {
+            background: var(--bg-secondary); border: 1px solid var(--border); color: #fff; padding: 10px 14px;
+            border-radius: 8px; font-size: 0.9rem; width: 200px; transition: var(--transition);
+        }
+        .controls input[type="text"]:focus, .controls input[type="number"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(233,69,96,0.3); }
+        .btn {
+            background: var(--accent); color: #fff; border: none; padding: 10px 18px; border-radius: 8px;
+            cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: var(--transition); white-space: nowrap;
+            display: inline-flex; align-items: center; gap: 4px; border: 1px solid transparent;
+        }
+        .btn:hover { background: #ff4d6a; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(233,69,96,0.4); }
+        .btn.secondary { background: #4a5568; }
+        .btn.secondary:hover { background: #5a6578; }
+        .btn.success { background: #38a169; }
+        .btn.success:hover { background: #48bb78; }
+        .filters {
+            background: var(--bg-card); padding: 14px; border-radius: var(--radius); box-shadow: var(--shadow);
+            display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+        }
+        .filter-btn {
+            padding: 8px 16px; border-radius: 24px; border: 2px solid var(--border);
+            cursor: pointer; font-size: 0.8rem; font-weight: 600; background: var(--bg-secondary);
+            color: var(--text-secondary); transition: var(--transition); user-select: none;
+        }
+        .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .filter-btn.status-online.active { background: var(--online); border-color: var(--online); }
+        .filter-btn.status-idle.active { background: var(--idle); border-color: var(--idle); }
+        .filter-btn.status-offline.active { background: var(--offline); border-color: var(--offline); }
+        .target-count { margin-left: auto; color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; }
+        .collapse-toggle {
+            background: var(--bg-card); border: 1px solid var(--border); color: var(--text-secondary);
+            padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem;
+            transition: var(--transition); text-align: center; width: 100%;
+        }
+        .collapse-toggle:hover { background: #1f2a3a; color: #fff; }
+        .log-toggle {
+            background: var(--bg-card); border: 1px solid var(--border); color: var(--text-secondary);
+            padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem;
+            transition: var(--transition); text-align: center; width: 100%;
+        }
+        .log-toggle:hover { background: #1f2a3a; color: #fff; }
+        .table-wrap {
+            background: var(--bg-card); border-radius: var(--radius); padding: 8px;
+            box-shadow: var(--shadow); overflow-x: auto; -webkit-overflow-scrolling: touch;
+        }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.8rem; min-width: 900px; }
+        th {
+            background: #1e2d3d; color: #fff; padding: 10px 6px; border-bottom: 2px solid var(--border);
+            white-space: nowrap; cursor: pointer; font-weight: 600; position: sticky; top: 0; z-index: 10;
+        }
+        th:hover { background: #2a3a4d; }
+        td { padding: 10px 6px; border-bottom: 1px solid var(--border); text-align: center; vertical-align: middle; color: var(--text-primary); }
+        td a { color: #63b3ed; text-decoration: none; font-weight: 500; }
+        td a:hover { text-decoration: underline; }
+        .online-bg { background: var(--online); color: #fff; padding: 4px 8px; border-radius: 12px; font-weight: 600; font-size: 0.75rem; }
+        .idle-bg { background: var(--idle); color: #fff; padding: 4px 8px; border-radius: 12px; font-weight: 600; font-size: 0.75rem; }
+        .offline-bg { background: var(--offline); color: #fff; padding: 4px 8px; border-radius: 12px; font-weight: 600; font-size: 0.75rem; }
+        .text-strong { font-weight: 700; }
+        .ff-high { color: #fc8181; }
+        .ff-mid { color: #f6ad55; }
+        .ff-low { color: #68d391; }
+        .hint-tag { font-weight: 700; padding: 4px 8px; border-radius: 6px; background: #2d3748; font-size: 0.75rem; }
+        .log-panel {
+            background: var(--bg-card); border-radius: var(--radius); padding: 14px;
+            box-shadow: var(--shadow); overflow: hidden;
+        }
+        .log-content { max-height: 160px; overflow-y: auto; display: none; }
+        .log-content.open { display: block; }
+        .log-entry { font-size: 0.75rem; color: #a0aec0; margin: 2px 0; font-family: 'Fira Code', monospace; }
+        .log-error { color: #fc8181; }
+        .log-success { color: #68d391; }
+        .log-warn { color: #f6ad55; }
+        .auto-detect-note { font-size: 0.75rem; color: #68d391; margin-left: 8px; }
+        @media (max-width: 768px) {
+            body { padding: 8px; }
+            .header h1 { font-size: 1.2rem; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .controls input[type="text"], .controls input[type="number"] { width: 100%; }
+            .controls label { flex-direction: column; align-items: flex-start; gap: 4px; }
+            .btn { width: 100%; justify-content: center; }
+            .filters { gap: 6px; }
+            .filter-btn { padding: 6px 12px; font-size: 0.7rem; }
+            .table-wrap { padding: 4px; }
+            .log-panel { max-height: none; }
+        }
+        ::-webkit-scrollbar { height: 6px; width: 6px; }
+        ::-webkit-scrollbar-track { background: #1a2332; }
+        ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 6px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🎯 冰蛙目标 <span class="subtitle">帮派监控</span></h1>
+        <span id="refreshStatus" class="refresh-status">就绪</span>
+    </div>
+
+    <button id="toggleCollapseBtn" class="collapse-toggle">📂 展开控制面板</button>
+
+    <div id="collapsibleSection" class="collapsible-section" style="display: none;">
+        <div class="controls">
+            <label>🔑 API Key <input type="text" id="apiKeyInput" placeholder="输入你的 Torn API Key"></label>
+            <label>🏰 派系ID <input type="text" id="factionIdInput" placeholder="手动输入或自动检测"><span id="autoDetectNote" class="auto-detect-note"></span></label>
+            <button class="btn success" id="loadMyStatsBtn">📊 加载我的属性</button>
+            <label>📂 导入表格 <input type="file" id="fileInput" accept=".xlsx,.csv"></label>
+            <button class="btn secondary" id="clearCacheBtn">🧹 清除表格缓存</button>
+            <button class="btn" id="forceRefreshBtn">🔄 强制刷新</button>
+            <label style="margin-left: 10px;">⏱️ 刷新间隔(秒) <input type="number" id="refreshIntervalInput" value="10" min="3" max="120" step="1" style="width:80px;"></label>
+        </div>
+
+        <div class="filters">
+            <span class="filter-btn status-online active" data-filter="online">在线</span>
+            <span class="filter-btn status-idle active" data-filter="idle">空闲</span>
+            <span class="filter-btn status-offline active" data-filter="offline">离线</span>
+            <span class="filter-btn active" data-filter="town">在城内</span>
+            <span class="filter-btn active" data-filter="abroad">在城外</span>
+            <span class="filter-btn active" data-filter="hospital_soon">住院 ≤5m</span>
+            <span class="filter-btn active" data-filter="hospital_later">住院 >5m</span>
+            <span class="filter-btn active" data-filter="ff_ge">FF ≥ 2.0</span>
+            <span class="filter-btn active" data-filter="ff_lt">FF < 2.0</span>
+            <span class="target-count" id="targetCount">成员: 0</span>
+        </div>
+    </div>
+
+    <div class="table-wrap">
+        <div id="tableContainer"><div style="padding:20px;text-align:center;color:#a0aec0;">请先设置 API Key、派系ID，并（可选）导入属性表格。</div></div>
+    </div>
+
+    <div class="log-panel">
+        <button id="toggleLogBtn" class="log-toggle">📋 展开日志</button>
+        <div id="logContent" class="log-content">
+            <div class="log-entry">系统就绪，等待操作...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ================= 工具函数 =================
+    function addCommas(numStr) {
+        if (!numStr || numStr === '0' || numStr === '-') return numStr === '-' ? '-' : '0';
+        const parts = numStr.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return parts.join('.');
+    }
+    function bn(timestamp) {
+        const now = Math.floor(Date.now() / 1000);
+        const diff = now - timestamp;
+        if (diff < 0) return [0, '未来'];
+        if (diff >= 86400) return [diff, Math.floor(diff / 86400) + 'd'];
+        if (diff >= 3600) return [diff, Math.floor(diff / 3600) + 'h'];
+        if (diff >= 60) return [diff, Math.floor(diff / 60) + 'm'];
+        return [diff, diff + 's'];
+    }
+    function getHint(defStr, dexStr, totalStr) {
+        const def = parseFloat(defStr) || 0;
+        const dex = parseFloat(dexStr) || 0;
+        const total = parseFloat(totalStr) || 1;
+        const s1 = ['#2d3748','#fff'], s2 = ['#2d3748','#fff'], s3 = ['#2d3748','#fff'], s4 = ['#2d3748','#fff'];
+        if (def + dex < 0.33 * total) return ['脆', ['#008196','#fff'], s2, ['#008196','#fff'], s4];
+        if (def - dex > 0.15 * total) return ['防', s1, ['#008196','#fff'], s3, s4];
+        if (dex - def > 0.15 * total) return ['闪', s1, s2, s3, ['#008196','#fff']];
+        if (def + dex > 0.67 * total) return ['龟', s1, ['#008196','#fff'], s3, ['#008196','#fff']];
+        return ['?', s1, s2, s3, s4];
+    }
+    function addLog(msg, type = '') {
+        const now = new Date().toLocaleTimeString();
+        $('#logContent').append(`<div class="log-entry log-${type}">[${now}] ${msg}</div>`);
+        const logContent = document.getElementById('logContent');
+        logContent.scrollTop = logContent.scrollHeight;
+    }
+
+    // ================= 状态 =================
+    let myStats = null;
+    let factionMembers = [];
+    let attrMap = new Map();
+    let enrichedData = [];
+    let refreshInterval = null;
+    let hospitalTimer = null;
+    let consecutiveFailures = 0;
+
+    let filters = {
+        online: true, idle: true, offline: true,
+        town: true, abroad: true,
+        hospital_soon: true, hospital_later: true,
+        ff_ge: true, ff_lt: true
+    };
+
+    const $apiKey = $('#apiKeyInput');
+    const $fileInput = $('#fileInput');
+    const $tableContainer = $('#tableContainer');
+    const $refreshStatus = $('#refreshStatus');
+    const $targetCount = $('#targetCount');
+    const $factionId = $('#factionIdInput');
+    const $collapsible = $('#collapsibleSection');
+    const $toggleBtn = $('#toggleCollapseBtn');
+    const $autoDetectNote = $('#autoDetectNote');
+    const $logToggle = $('#toggleLogBtn');
+    const $logContent = $('#logContent');
+    const $refreshIntervalInput = $('#refreshIntervalInput');
+
+    // ================= 折叠/展开 =================
+    $toggleBtn.on('click', function() {
+        $collapsible.slideToggle(200);
+        $(this).text($collapsible.is(':visible') ? '📁 折叠控制面板' : '📂 展开控制面板');
+    });
+
+    $logToggle.on('click', function() {
+        $logContent.toggleClass('open');
+        $(this).text($logContent.hasClass('open') ? '📋 收起日志' : '📋 展开日志');
+    });
+
+    // ================= 初始化 =================
+    (function init() {
+        const savedKey = localStorage.getItem('torn_api_key');
+        if (savedKey) $apiKey.val(savedKey);
+        const savedFactionId = localStorage.getItem('faction_id');
+        if (savedFactionId) {
+            $factionId.val(savedFactionId);
+            $autoDetectNote.text('(已保存)');
+        }
+        const savedInterval = localStorage.getItem('refresh_interval');
+        if (savedInterval) $refreshIntervalInput.val(savedInterval);
+        const savedMyStats = localStorage.getItem('my_torn_stats');
+        if (savedMyStats) { try { myStats = JSON.parse(savedMyStats); } catch(e) {} }
+        const savedAttrMap = localStorage.getItem('attr_map');
+        if (savedAttrMap) { try { attrMap = new Map(JSON.parse(savedAttrMap)); } catch(e) {} }
+        const cachedMembers = localStorage.getItem('faction_members_cache');
+        if (cachedMembers) {
+            try {
+                factionMembers = JSON.parse(cachedMembers);
+                if (factionMembers.length > 0) {
+                    buildEnrichedData();
+                    renderTable();
+                    startHospitalCountdown();
+                    addLog('从缓存加载了派系成员数据');
+                }
+            } catch(e) {}
+        }
+        if (myStats && factionMembers.length > 0 && savedKey && savedFactionId) {
+            startMonitoring();
+        }
+    })();
+
+    $factionId.on('change', function() {
+        localStorage.setItem('faction_id', $factionId.val());
+        $autoDetectNote.text($factionId.val() ? '(已更新)' : '');
+    });
+
+    $refreshIntervalInput.on('change', function() {
+        const val = parseInt($refreshIntervalInput.val()) || 10;
+        $refreshIntervalInput.val(Math.max(3, Math.min(120, val)));
+        localStorage.setItem('refresh_interval', $refreshIntervalInput.val());
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+            startMonitoring();
+        }
+    });
+
+    // 加载我的属性
+    $('#loadMyStatsBtn').click(async function() {
+        const key = $apiKey.val().trim();
+        if (!key) { alert('请输入 API Key'); return; }
+        localStorage.setItem('torn_api_key', key);
+        $refreshStatus.text('正在获取...').css('color','#f6ad55');
+        addLog('正在获取个人战斗属性...');
+        try {
+            const resp = await fetch(`https://api.torn.com/user/?selections=battlestats&key=${key}`);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            if (data.error) throw new Error(data.error.error || data.error.code);
+            const { strength, defense, speed, dexterity } = data;
+            myStats = {
+                str: strength, def: defense, spd: speed, dex: dexterity,
+                total_sqrt: Math.sqrt(strength) + Math.sqrt(defense) + Math.sqrt(speed) + Math.sqrt(dexterity)
+            };
+            localStorage.setItem('my_torn_stats', JSON.stringify(myStats));
+            $refreshStatus.text('属性已加载').css('color','#68d391');
+            addLog('属性加载成功');
+            if (factionMembers.length > 0) {
+                buildEnrichedData();
+                renderTable();
+                startHospitalCountdown();
+                startMonitoring();
+            }
+        } catch (e) {
+            alert('加载属性失败：' + e.message);
+            $refreshStatus.text('加载失败').css('color','#fc8181');
+            addLog(`加载属性失败: ${e.message}`, 'error');
+        }
+    });
+
+    // ================= 导入表格 + 自动派系检测 =================
+    $fileInput.change(function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            try {
+                const arr = new Uint8Array(ev.target.result);
+                const workbook = XLSX.read(arr, { type: 'array', raw: false });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const parsed = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false });
+                if (!parsed || parsed.length === 0) throw new Error('表格为空');
+                const headersRaw = parsed[0].map(h => String(h).trim().toLowerCase());
+                const rows = [];
+                for (let i = 1; i < parsed.length; i++) {
+                    const vals = parsed[i];
+                    let row = {};
+                    headersRaw.forEach((h, idx) => { row[h] = vals[idx] ? String(vals[idx]).trim() : ''; });
+                    rows.push(row);
+                }
+                processAttrRows(rows, headersRaw);
+            } catch(err) {
+                alert('解析文件失败: ' + err.message);
+                addLog(`文件解析失败: ${err.message}`, 'error');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    async function processAttrRows(rows, headers) {
+        const requiredLower = ['name', 'id', 'str', 'def', 'spd', 'dex', 'total'];
+        const missing = requiredLower.filter(k => !headers.includes(k));
+        if (missing.length) {
+            alert(`文件缺少必需列: ${missing.join(', ')}\n实际列名: ${headers.join(', ')}`);
+            addLog(`列名不匹配。实际列: ${headers.join(', ')}`, 'error');
+            return;
+        }
+        attrMap.clear();
+        const allIds = [];
+        rows.forEach((row, idx) => {
+            const id = String(row['id'] || '').trim();
+            if (id) {
+                attrMap.set(id, {
+                    STR: String(row['str'] || '0').replace(/,/g, '').trim(),
+                    DEF: String(row['def'] || '0').replace(/,/g, '').trim(),
+                    SPD: String(row['spd'] || '0').replace(/,/g, '').trim(),
+                    DEX: String(row['dex'] || '0').replace(/,/g, '').trim(),
+                    TOTAL: String(row['total'] || '0').replace(/,/g, '').trim()
+                });
+                allIds.push(id);
+                if (idx === 0) addLog(`首条属性 ID: ${id}, TOTAL: ${attrMap.get(id).TOTAL}`, 'success');
+            }
+        });
+        localStorage.setItem('attr_map', JSON.stringify([...attrMap]));
+        $fileInput.val('');
+        addLog(`成功导入属性表格，共 ${attrMap.size} 条记录`);
+
+        if (allIds.length > 0) {
+            await autoDetectFaction(allIds);
+        } else {
+            addLog('未找到有效ID，无法自动检测派系', 'warn');
+        }
+
+        if (factionMembers.length > 0) {
+            buildEnrichedData();
+            renderTable();
+            startHospitalCountdown();
+        } else {
+            $refreshStatus.text('属性已导入，等待派系数据').css('color','#f6ad55');
+        }
+    }
+
+    async function autoDetectFaction(idList) {
+        const key = $apiKey.val().trim();
+        if (!key) {
+            addLog('未填写 API Key，跳过自动派系检测', 'warn');
+            return;
+        }
+        addLog('正在自动检测派系 ID ...');
+        $refreshStatus.text('检测派系中...').css('color','#f6ad55');
+
+        const sampleSize = Math.min(4, idList.length);
+        const shuffled = [...idList].sort(() => Math.random() - 0.5);
+        const sampleIds = shuffled.slice(0, sampleSize);
+
+        const factionCounts = new Map();
+        let validResults = 0;
+
+        for (const id of sampleIds) {
+            try {
+                const resp = await fetch(`https://api.torn.com/user/${id}?selections=profile&key=${key}`);
+                if (!resp.ok) continue;
+                const data = await resp.json();
+                if (data.error) continue;
+                const factionId = data.faction && data.faction.faction_id ? String(data.faction.faction_id) : null;
+                if (factionId) {
+                    factionCounts.set(factionId, (factionCounts.get(factionId) || 0) + 1);
+                    validResults++;
+                }
+            } catch (e) {}
+        }
+
+        let finalFactionId = null;
+
+        if (validResults >= 3) {
+            let maxCount = 0;
+            for (const [fid, count] of factionCounts) {
+                if (count > maxCount) { maxCount = count; finalFactionId = fid; }
+            }
+            if (maxCount >= 2) {
+                addLog(`前4个样本中，派系 ${finalFactionId} 出现 ${maxCount} 次，采用`, 'success');
+            } else {
+                const remainingIds = idList.filter(i => !sampleIds.includes(i));
+                if (remainingIds.length > 0) {
+                    const extraId = remainingIds[Math.floor(Math.random() * remainingIds.length)];
+                    try {
+                        const resp = await fetch(`https://api.torn.com/user/${extraId}?selections=profile&key=${key}`);
+                        const data = await resp.json();
+                        const extraFid = data.faction && data.faction.faction_id ? String(data.faction.faction_id) : null;
+                        if (extraFid) {
+                            factionCounts.set(extraFid, (factionCounts.get(extraFid) || 0) + 1);
+                            let max = 0;
+                            for (const [fid, cnt] of factionCounts) {
+                                if (cnt > max) { max = cnt; finalFactionId = fid; }
+                            }
+                            addLog(`补充样本后，派系 ${finalFactionId} 出现 ${max} 次，采用`, 'success');
+                        }
+                    } catch (e) {}
+                }
+            }
+        } else if (validResults > 0) {
+            finalFactionId = factionCounts.keys().next().value;
+            addLog(`有效结果较少，暂时采用派系 ${finalFactionId}`, 'warn');
+        }
+
+        if (finalFactionId) {
+            $factionId.val(finalFactionId);
+            localStorage.setItem('faction_id', finalFactionId);
+            $autoDetectNote.text('(自动检测)');
+            addLog(`派系ID已自动设置为 ${finalFactionId}，可手动修改`, 'success');
+        } else {
+            addLog('未能自动检测出派系ID，请手动输入', 'error');
+        }
+    }
+
+    // 清除缓存（仅表格）
+    $('#clearCacheBtn').click(function() {
+        if (confirm('仅清除导入的属性表缓存和派系成员缓存，API Key 和派系 ID 会保留。确定吗？')) {
+            localStorage.removeItem('attr_map');
+            localStorage.removeItem('faction_members_cache');
+            attrMap.clear();
+            factionMembers = [];
+            enrichedData = [];
+            if (refreshInterval) clearInterval(refreshInterval);
+            if (hospitalTimer) clearInterval(hospitalTimer);
+            renderTable();
+            $refreshStatus.text('表格缓存已清除').css('color','#a0aec0');
+            addLog('表格缓存已清除（API Key 和派系ID 已保留）');
+        }
+    });
+
+    $('#forceRefreshBtn').click(async function() {
+        if (!$apiKey.val().trim() || !$factionId.val().trim()) {
+            alert('请先填写 API Key 和派系ID');
+            return;
+        }
+        addLog('手动强制刷新派系数据...');
+        await fetchFactionData();
+    });
+
+    $(document).on('click', '.filter-btn', function() {
+        const key = $(this).data('filter');
+        if (key in filters) {
+            filters[key] = !filters[key];
+            $(this).toggleClass('active');
+            applyFilters();
+        }
+    });
+
+    // ================= 派系API（可配置间隔，timestamp 参数绕过缓存） =================
+    async function fetchFactionData() {
+        const key = $apiKey.val().trim();
+        const factionId = $factionId.val().trim();
+        if (!key || !factionId) { addLog('缺少 API Key 或派系ID', 'warn'); return; }
+        $refreshStatus.text('正在拉取...').css('color','#f6ad55');
+        try {
+            const timestamp = Date.now();
+            const url = `https://api.torn.com/v2/faction/${factionId}/members?striptags=true&key=${key}&timestamp=${timestamp}`;
+            const resp = await fetch(url, { cache: 'no-store' });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            if (!data.members || !Array.isArray(data.members)) throw new Error('返回格式错误');
+            factionMembers = data.members;
+            localStorage.setItem('faction_members_cache', JSON.stringify(factionMembers));
+            addLog(`派系API成功，获取 ${factionMembers.length} 名成员`, 'success');
+            consecutiveFailures = 0;
+            buildEnrichedData();
+            renderTable();
+            startHospitalCountdown();
+            $refreshStatus.text(`更新于 ${new Date().toLocaleTimeString()}`).css('color','#68d391');
+        } catch (e) {
+            consecutiveFailures++;
+            addLog(`派系API请求失败 (连续${consecutiveFailures}次): ${e.message}`, 'error');
+            $refreshStatus.text('拉取失败').css('color','#fc8181');
+        }
+    }
+
+    function startMonitoring() {
+        if (refreshInterval) clearInterval(refreshInterval);
+        const intervalSec = parseInt($refreshIntervalInput.val()) || 10;
+        const intervalMs = Math.max(3000, intervalSec * 1000);
+        refreshInterval = setInterval(() => fetchFactionData(), intervalMs);
+        $refreshStatus.text(`监控中 (${intervalSec}s)`).css('color','#68d391');
+    }
+
+    // ================= 数据处理 =================
+    function buildEnrichedData() {
+        const now = Math.floor(Date.now() / 1000);
+        enrichedData = factionMembers.map(member => {
+            const id = String(member.id);
+            const attrs = attrMap.get(id);
+            const hasAttrs = !!attrs;
+            const lastAction = member.last_action || {};
+            const onlineState = lastAction.status || 'Unknown';
+            const status = member.status || {};
+            let hospitalSec = 0;
+            if (status.state === 'Hospital' && status.until && typeof status.until === 'number') {
+                hospitalSec = Math.max(0, status.until - now);
+            }
+            const desc = (status.description || '').toLowerCase();
+            const isTown = status.state === 'Okay' || desc.startsWith('in ');
+
+            let ffValue = null;
+            if (hasAttrs && myStats) {
+                const s = parseFloat(attrs.STR) || 0;
+                const d = parseFloat(attrs.DEF) || 0;
+                const p = parseFloat(attrs.SPD) || 0;
+                const x = parseFloat(attrs.DEX) || 0;
+                ffValue = ((Math.sqrt(s) + Math.sqrt(d) + Math.sqrt(p) + Math.sqrt(x)) / myStats.total_sqrt * (8/3) + 1);
+            }
+
+            return {
+                id,
+                name: member.name || '?',
+                level: member.level || 0,
+                onlineState,
+                lastActionTimestamp: lastAction.timestamp || 0,
+                lastDiff: bn(lastAction.timestamp || 0)[1],
+                statusDesc: status.description || status.state || '未知',
+                statusState: status.state || 'Unknown',
+                hospitalSec,
+                isTown,
+                strDisplay: hasAttrs ? addCommas(attrs.STR) : '-',
+                defDisplay: hasAttrs ? addCommas(attrs.DEF) : '-',
+                spdDisplay: hasAttrs ? addCommas(attrs.SPD) : '-',
+                dexDisplay: hasAttrs ? addCommas(attrs.DEX) : '-',
+                totalDisplay: hasAttrs ? addCommas(attrs.TOTAL) : '-',
+                ff: ffValue,
+                ffDisplay: ffValue !== null ? Math.min(ffValue, 3.0).toFixed(2) : '-',
+                hintArr: hasAttrs ? getHint(attrs.DEF, attrs.DEX, attrs.TOTAL) : ['-', ['#2d3748','#fff'], ['#2d3748','#fff'], ['#2d3748','#fff'], ['#2d3748','#fff']],
+                rawTOTAL: hasAttrs ? attrs.TOTAL : null
+            };
+        });
+        enrichedData.sort((a, b) => (parseFloat(b.rawTOTAL) || 0) - (parseFloat(a.rawTOTAL) || 0));
+    }
+
+    function startHospitalCountdown() {
+        if (hospitalTimer) clearInterval(hospitalTimer);
+        hospitalTimer = setInterval(() => {
+            let changed = false;
+            for (let row of enrichedData) {
+                if (row.statusState === 'Hospital' && row.hospitalSec > 0) {
+                    row.hospitalSec = Math.max(0, row.hospitalSec - 1);
+                    changed = true;
+                }
+            }
+            if (changed) {
+                $('#tableContainer tbody tr').each(function(index) {
+                    const row = enrichedData[index];
+                    if (row && row.statusState === 'Hospital') {
+                        const mins = Math.floor(row.hospitalSec / 60);
+                        const secs = row.hospitalSec % 60;
+                        $(this).find('td:eq(3)').text(`住院 ${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`);
+                    }
+                });
+            }
+        }, 1000);
+    }
+
+    function renderTable() {
+        if (enrichedData.length === 0) {
+            $tableContainer.html('<div style="padding:20px;text-align:center;color:#a0aec0;">等待派系数据...</div>');
+            $targetCount.text('成员: 0');
+            return;
+        }
+        let html = `<table><thead><tr>
+            <th>在线</th><th>名字</th><th>活动</th><th>状态</th><th>攻击</th><th>FF</th>
+            <th>总属性</th><th>ID</th><th>等级</th><th>分布</th><th>STR</th><th>DEF</th><th>SPD</th><th>DEX</th>
+        </tr></thead><tbody>`;
+        enrichedData.forEach(row => {
+            let statusClass = row.onlineState === 'Online' ? 'online-bg' : (row.onlineState === 'Idle' ? 'idle-bg' : 'offline-bg');
+            let statusDisplay = row.statusDesc;
+            if (row.statusState === 'Hospital') {
+                const mins = Math.floor(row.hospitalSec / 60);
+                const secs = row.hospitalSec % 60;
+                statusDisplay = `住院 ${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+            }
+            let ffColor = 'ff-mid';
+            if (row.ff !== null) {
+                if (row.ff >= 2.0) ffColor = 'ff-high';
+                else if (row.ff < 1.0) ffColor = 'ff-low';
+            }
+            const hintArr = row.hintArr;
+            html += `<tr data-online="${row.onlineState}" data-town="${row.isTown}" data-hospital="${row.hospitalSec}" data-ff="${row.ff || 0}">
+                <td><span class="${statusClass}">${row.onlineState}</span></td>
+                <td><a href="https://www.torn.com/profiles.php?XID=${row.id}" target="_blank">${row.name}</a></td>
+                <td>${row.lastDiff}</td>
+                <td>${statusDisplay}</td>
+                <td><a href="https://www.torn.com/page.php?sid=attack&user2ID=${row.id}" target="_blank">⚔️</a></td>
+                <td class="${ffColor} text-strong">${row.ffDisplay}</td>
+                <td class="text-strong">${row.totalDisplay}</td>
+                <td>${row.id}</td>
+                <td>${row.level || '?'}</td>
+                <td><span class="hint-tag" style="background:${hintArr[1][0]};color:${hintArr[1][1]};">${hintArr[0]}</span></td>
+                <td style="background:${hintArr[1][0]};color:${hintArr[1][1]};">${row.strDisplay}</td>
+                <td style="background:${hintArr[2][0]};color:${hintArr[2][1]};">${row.defDisplay}</td>
+                <td style="background:${hintArr[3][0]};color:${hintArr[3][1]};">${row.spdDisplay}</td>
+                <td style="background:${hintArr[4][0]};color:${hintArr[4][1]};">${row.dexDisplay}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        $tableContainer.html(html);
+        applyFilters();
+        $targetCount.text(`成员: ${enrichedData.length}`);
+    }
+
+    function applyFilters() {
+        $('#tableContainer tbody tr').each(function() {
+            const $row = $(this);
+            const online = $row.data('online');
+            const town = $row.data('town');
+            const hospitalSec = parseInt($row.attr('data-hospital')) || 0;
+            const ff = parseFloat($row.data('ff')) || 0;
+            let show = true;
+            if (online === 'Online' && !filters.online) show = false;
+            else if (online === 'Idle' && !filters.idle) show = false;
+            else if (online === 'Offline' && !filters.offline) show = false;
+            if (show) {
+                const isTown = (town === true || town === 'true');
+                if (isTown && !filters.town) show = false;
+                else if (!isTown && !filters.abroad) show = false;
+            }
+            if (show) {
+                if (hospitalSec <= 300) {
+                    if (!filters.hospital_soon) show = false;
+                } else {
+                    if (!filters.hospital_later) show = false;
+                }
+            }
+            if (show && ff > 0) {
+                if (ff >= 2.0 && !filters.ff_ge) show = false;
+                else if (ff < 2.0 && !filters.ff_lt) show = false;
+            }
+            $row.toggle(show);
+        });
+        const visible = $('#tableContainer tbody tr:visible').length;
+        $targetCount.text(`成员: ${visible} / ${enrichedData.length}`);
+    }
+
+    addLog('🎯 帮派监控已启动 (timestamp 绕过缓存，可配置间隔)', 'success');
+</script>
+</body>
+</html>
