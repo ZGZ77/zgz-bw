@@ -63,6 +63,10 @@
         .btn.secondary:hover { background: #5a6578; }
         .btn.success { background: #38a169; }
         .btn.success:hover { background: #48bb78; }
+        .btn.warning { background: #dd6b20; }
+        .btn.warning:hover { background: #ed8936; }
+        .btn.stop { background: #e53e3e; }
+        .btn.stop:hover { background: #fc8181; }
         .filters {
             background: var(--bg-card); padding: 14px; border-radius: var(--radius); box-shadow: var(--shadow);
             display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
@@ -93,23 +97,23 @@
             background: var(--bg-card); border-radius: var(--radius); padding: 8px;
             box-shadow: var(--shadow); overflow-x: auto; -webkit-overflow-scrolling: touch;
         }
-        table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.8rem; min-width: 900px; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.8rem; min-width: 720px; }
         th {
-            background: #1e2d3d; color: #fff; padding: 10px 6px; border-bottom: 2px solid var(--border);
+            background: #1e2d3d; color: #fff; padding: 8px 4px; border-bottom: 2px solid var(--border);
             white-space: nowrap; cursor: pointer; font-weight: 600; position: sticky; top: 0; z-index: 10;
         }
         th:hover { background: #2a3a4d; }
-        td { padding: 10px 6px; border-bottom: 1px solid var(--border); text-align: center; vertical-align: middle; color: var(--text-primary); }
+        td { padding: 8px 4px; border-bottom: 1px solid var(--border); text-align: center; vertical-align: middle; color: var(--text-primary); }
         td a { color: #63b3ed; text-decoration: none; font-weight: 500; }
         td a:hover { text-decoration: underline; }
-        .online-bg { background: var(--online); color: #fff; padding: 4px 8px; border-radius: 12px; font-weight: 600; font-size: 0.75rem; }
-        .idle-bg { background: var(--idle); color: #fff; padding: 4px 8px; border-radius: 12px; font-weight: 600; font-size: 0.75rem; }
-        .offline-bg { background: var(--offline); color: #fff; padding: 4px 8px; border-radius: 12px; font-weight: 600; font-size: 0.75rem; }
+        .online-bg { background: var(--online); color: #fff; padding: 2px 6px; border-radius: 12px; font-weight: 600; font-size: 0.7rem; display: inline-block; }
+        .idle-bg { background: var(--idle); color: #fff; padding: 2px 6px; border-radius: 12px; font-weight: 600; font-size: 0.7rem; display: inline-block; }
+        .offline-bg { background: var(--offline); color: #fff; padding: 2px 6px; border-radius: 12px; font-weight: 600; font-size: 0.7rem; display: inline-block; }
         .text-strong { font-weight: 700; }
         .ff-high { color: #fc8181; }
         .ff-mid { color: #f6ad55; }
         .ff-low { color: #68d391; }
-        .hint-tag { font-weight: 700; padding: 4px 8px; border-radius: 6px; background: #2d3748; font-size: 0.75rem; }
+        .hint-tag { font-weight: 700; padding: 2px 6px; border-radius: 6px; background: #2d3748; font-size: 0.7rem; display: inline-block; }
         .log-panel {
             background: var(--bg-card); border-radius: var(--radius); padding: 14px;
             box-shadow: var(--shadow); overflow: hidden;
@@ -121,6 +125,15 @@
         .log-success { color: #68d391; }
         .log-warn { color: #f6ad55; }
         .auto-detect-note { font-size: 0.75rem; color: #68d391; margin-left: 8px; }
+
+        /* 列宽控制（已优化） */
+        th:nth-child(1), td:nth-child(1) { width: 40px; }                      /* 在线 */
+        th:nth-child(2), td:nth-child(2) { max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* 名字 */
+        th:nth-child(3), td:nth-child(3) { width: 50px; white-space: nowrap; }   /* 活动 */
+        th:nth-child(4), td:nth-child(4) { max-width: 140px; }                  /* 状态（允许换行，保证住院时间一行） */
+        th:nth-child(5), td:nth-child(5) { width: 50px; }                       /* 攻击 */
+        th:nth-child(6), td:nth-child(6) { width: 80px; white-space: nowrap; }   /* FF/FR */
+
         @media (max-width: 768px) {
             body { padding: 8px; }
             .header h1 { font-size: 1.2rem; }
@@ -132,6 +145,11 @@
             .filter-btn { padding: 6px 12px; font-size: 0.7rem; }
             .table-wrap { padding: 4px; }
             .log-panel { max-height: none; }
+            table { font-size: 0.7rem; }
+            th, td { padding: 6px 2px; }
+            th:nth-child(2), td:nth-child(2) { max-width: 80px; }
+            th:nth-child(4), td:nth-child(4) { max-width: 110px; }
+            th:nth-child(6), td:nth-child(6) { width: 70px; }
         }
         ::-webkit-scrollbar { height: 6px; width: 6px; }
         ::-webkit-scrollbar-track { background: #1a2332; }
@@ -142,7 +160,7 @@
 <div class="container">
     <div class="header">
         <h1>🎯 冰蛙目标 <span class="subtitle">帮派监控</span></h1>
-        <span id="refreshStatus" class="refresh-status">就绪</span>
+        <span id="refreshStatus" class="refresh-status">已停止</span>
     </div>
 
     <button id="toggleCollapseBtn" class="collapse-toggle">📂 展开控制面板</button>
@@ -150,12 +168,13 @@
     <div id="collapsibleSection" class="collapsible-section" style="display: none;">
         <div class="controls">
             <label>🔑 API Key <input type="text" id="apiKeyInput" placeholder="输入你的 Torn API Key"></label>
+            <button class="btn secondary" id="saveApiBtn">💾 保存API Key</button>
             <label>🏰 派系ID <input type="text" id="factionIdInput" placeholder="手动输入或自动检测"><span id="autoDetectNote" class="auto-detect-note"></span></label>
-            <button class="btn success" id="loadMyStatsBtn">📊 加载我的属性</button>
             <label>📂 导入表格 <input type="file" id="fileInput" accept=".xlsx,.csv"></label>
             <button class="btn secondary" id="clearCacheBtn">🧹 清除表格缓存</button>
-            <button class="btn" id="forceRefreshBtn">🔄 强制刷新</button>
-            <label style="margin-left: 10px;">⏱️ 刷新间隔(秒) <input type="number" id="refreshIntervalInput" value="10" min="3" max="120" step="1" style="width:80px;"></label>
+            <button class="btn success" id="startRefreshBtn">▶️ 开始刷新</button>
+            <button class="btn stop" id="stopRefreshBtn" disabled>⏹️ 停止刷新</button>
+            <label style="margin-left: 10px;">⏱️ 间隔(秒) <input type="number" id="refreshIntervalInput" value="10" min="3" max="120" step="1" style="width:80px;"></label>
         </div>
 
         <div class="filters">
@@ -227,6 +246,7 @@
     let refreshInterval = null;
     let hospitalTimer = null;
     let consecutiveFailures = 0;
+    let isMonitoring = false;
 
     let filters = {
         online: true, idle: true, offline: true,
@@ -247,6 +267,9 @@
     const $logToggle = $('#toggleLogBtn');
     const $logContent = $('#logContent');
     const $refreshIntervalInput = $('#refreshIntervalInput');
+    const $startRefreshBtn = $('#startRefreshBtn');
+    const $stopRefreshBtn = $('#stopRefreshBtn');
+    const $saveApiBtn = $('#saveApiBtn');
 
     // ================= 折叠/展开 =================
     $toggleBtn.on('click', function() {
@@ -258,6 +281,81 @@
         $logContent.toggleClass('open');
         $(this).text($logContent.hasClass('open') ? '📋 收起日志' : '📋 展开日志');
     });
+
+    // ================= 保存API Key（自动获取属性） =================
+    $saveApiBtn.on('click', async function() {
+        const key = $apiKey.val().trim();
+        if (!key) { alert('请输入 API Key'); return; }
+        localStorage.setItem('torn_api_key', key);
+        addLog('API Key 已保存', 'success');
+        await loadMyStats();
+    });
+
+    async function loadMyStats() {
+        const key = $apiKey.val().trim();
+        if (!key) return;
+        $refreshStatus.text('获取属性中...').css('color','#f6ad55');
+        try {
+            const resp = await fetch(`https://api.torn.com/user/?selections=battlestats&key=${key}`);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            if (data.error) throw new Error(data.error.error || data.error.code);
+            const { strength, defense, speed, dexterity } = data;
+            myStats = {
+                str: strength, def: defense, spd: speed, dex: dexterity,
+                total_sqrt: Math.sqrt(strength) + Math.sqrt(defense) + Math.sqrt(speed) + Math.sqrt(dexterity)
+            };
+            localStorage.setItem('my_torn_stats', JSON.stringify(myStats));
+            addLog('个人战斗属性已更新', 'success');
+            $refreshStatus.text('属性已就绪').css('color','#68d391');
+            if (factionMembers.length > 0) {
+                buildEnrichedData();
+                renderTable();
+            }
+        } catch (e) {
+            addLog(`属性获取失败: ${e.message}`, 'error');
+            $refreshStatus.text('属性获取失败').css('color','#fc8181');
+        }
+    }
+
+    // ================= 开始/停止刷新 =================
+    $startRefreshBtn.on('click', function() {
+        if (!$apiKey.val().trim() || !$factionId.val().trim()) {
+            alert('请先设置 API Key 和派系ID');
+            return;
+        }
+        if (isMonitoring) return;
+        startMonitoring();
+    });
+
+    $stopRefreshBtn.on('click', function() {
+        stopMonitoring();
+    });
+
+    function startMonitoring() {
+        if (refreshInterval) clearInterval(refreshInterval);
+        const intervalSec = parseInt($refreshIntervalInput.val()) || 10;
+        const intervalMs = Math.max(3000, intervalSec * 1000);
+        refreshInterval = setInterval(() => fetchFactionData(), intervalMs);
+        isMonitoring = true;
+        $startRefreshBtn.prop('disabled', true);
+        $stopRefreshBtn.prop('disabled', false);
+        $refreshStatus.text(`监控中 (${intervalSec}s)`).css('color','#68d391');
+        addLog(`开始自动刷新，间隔 ${intervalSec} 秒`);
+        fetchFactionData();
+    }
+
+    function stopMonitoring() {
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+            refreshInterval = null;
+        }
+        isMonitoring = false;
+        $startRefreshBtn.prop('disabled', false);
+        $stopRefreshBtn.prop('disabled', true);
+        $refreshStatus.text('已停止').css('color','#a0aec0');
+        addLog('已停止自动刷新');
+    }
 
     // ================= 初始化 =================
     (function init() {
@@ -286,8 +384,8 @@
                 }
             } catch(e) {}
         }
-        if (myStats && factionMembers.length > 0 && savedKey && savedFactionId) {
-            startMonitoring();
+        if (savedKey && myStats === null) {
+            loadMyStats();
         }
     })();
 
@@ -300,42 +398,9 @@
         const val = parseInt($refreshIntervalInput.val()) || 10;
         $refreshIntervalInput.val(Math.max(3, Math.min(120, val)));
         localStorage.setItem('refresh_interval', $refreshIntervalInput.val());
-        if (refreshInterval) {
+        if (isMonitoring) {
             clearInterval(refreshInterval);
             startMonitoring();
-        }
-    });
-
-    // 加载我的属性
-    $('#loadMyStatsBtn').click(async function() {
-        const key = $apiKey.val().trim();
-        if (!key) { alert('请输入 API Key'); return; }
-        localStorage.setItem('torn_api_key', key);
-        $refreshStatus.text('正在获取...').css('color','#f6ad55');
-        addLog('正在获取个人战斗属性...');
-        try {
-            const resp = await fetch(`https://api.torn.com/user/?selections=battlestats&key=${key}`);
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            const data = await resp.json();
-            if (data.error) throw new Error(data.error.error || data.error.code);
-            const { strength, defense, speed, dexterity } = data;
-            myStats = {
-                str: strength, def: defense, spd: speed, dex: dexterity,
-                total_sqrt: Math.sqrt(strength) + Math.sqrt(defense) + Math.sqrt(speed) + Math.sqrt(dexterity)
-            };
-            localStorage.setItem('my_torn_stats', JSON.stringify(myStats));
-            $refreshStatus.text('属性已加载').css('color','#68d391');
-            addLog('属性加载成功');
-            if (factionMembers.length > 0) {
-                buildEnrichedData();
-                renderTable();
-                startHospitalCountdown();
-                startMonitoring();
-            }
-        } catch (e) {
-            alert('加载属性失败：' + e.message);
-            $refreshStatus.text('加载失败').css('color','#fc8181');
-            addLog(`加载属性失败: ${e.message}`, 'error');
         }
     });
 
@@ -500,15 +565,6 @@
         }
     });
 
-    $('#forceRefreshBtn').click(async function() {
-        if (!$apiKey.val().trim() || !$factionId.val().trim()) {
-            alert('请先填写 API Key 和派系ID');
-            return;
-        }
-        addLog('手动强制刷新派系数据...');
-        await fetchFactionData();
-    });
-
     $(document).on('click', '.filter-btn', function() {
         const key = $(this).data('filter');
         if (key in filters) {
@@ -518,7 +574,7 @@
         }
     });
 
-    // ================= 派系API（可配置间隔，timestamp 参数绕过缓存） =================
+    // ================= 派系API =================
     async function fetchFactionData() {
         const key = $apiKey.val().trim();
         const factionId = $factionId.val().trim();
@@ -539,6 +595,7 @@
             renderTable();
             startHospitalCountdown();
             $refreshStatus.text(`更新于 ${new Date().toLocaleTimeString()}`).css('color','#68d391');
+            if (!isMonitoring) $refreshStatus.text('已停止').css('color','#a0aec0');
         } catch (e) {
             consecutiveFailures++;
             addLog(`派系API请求失败 (连续${consecutiveFailures}次): ${e.message}`, 'error');
@@ -546,15 +603,7 @@
         }
     }
 
-    function startMonitoring() {
-        if (refreshInterval) clearInterval(refreshInterval);
-        const intervalSec = parseInt($refreshIntervalInput.val()) || 10;
-        const intervalMs = Math.max(3000, intervalSec * 1000);
-        refreshInterval = setInterval(() => fetchFactionData(), intervalMs);
-        $refreshStatus.text(`监控中 (${intervalSec}s)`).css('color','#68d391');
-    }
-
-    // ================= 数据处理 =================
+    // ================= 数据处理（修正FR计算） =================
     function buildEnrichedData() {
         const now = Math.floor(Date.now() / 1000);
         enrichedData = factionMembers.map(member => {
@@ -572,13 +621,23 @@
             const isTown = status.state === 'Okay' || desc.startsWith('in ');
 
             let ffValue = null;
+            let ffDisplay = '-';
+            let frDisplay = '-';
             if (hasAttrs && myStats) {
                 const s = parseFloat(attrs.STR) || 0;
                 const d = parseFloat(attrs.DEF) || 0;
                 const p = parseFloat(attrs.SPD) || 0;
                 const x = parseFloat(attrs.DEX) || 0;
                 ffValue = ((Math.sqrt(s) + Math.sqrt(d) + Math.sqrt(p) + Math.sqrt(x)) / myStats.total_sqrt * (8/3) + 1);
+                ffDisplay = Math.min(ffValue, 3.0).toFixed(2);
+                const level = member.level || 0;
+                if (level > 0) {
+                    const fr = 0.25 * parseFloat(ffDisplay) * (Math.log(level) + 1);
+                    frDisplay = fr.toFixed(2);
+                }
             }
+
+            const combinedFF = (ffDisplay !== '-' && frDisplay !== '-') ? `${ffDisplay} / ${frDisplay}` : '-';
 
             return {
                 id,
@@ -597,7 +656,9 @@
                 dexDisplay: hasAttrs ? addCommas(attrs.DEX) : '-',
                 totalDisplay: hasAttrs ? addCommas(attrs.TOTAL) : '-',
                 ff: ffValue,
-                ffDisplay: ffValue !== null ? Math.min(ffValue, 3.0).toFixed(2) : '-',
+                ffDisplay,
+                frDisplay,
+                combinedFF,
                 hintArr: hasAttrs ? getHint(attrs.DEF, attrs.DEX, attrs.TOTAL) : ['-', ['#2d3748','#fff'], ['#2d3748','#fff'], ['#2d3748','#fff'], ['#2d3748','#fff']],
                 rawTOTAL: hasAttrs ? attrs.TOTAL : null
             };
@@ -635,10 +696,16 @@
             return;
         }
         let html = `<table><thead><tr>
-            <th>在线</th><th>名字</th><th>活动</th><th>状态</th><th>攻击</th><th>FF</th>
+            <th>在线</th><th>名字</th><th>活动</th><th>状态</th><th>攻击</th><th>FF/FR</th>
             <th>总属性</th><th>ID</th><th>等级</th><th>分布</th><th>STR</th><th>DEF</th><th>SPD</th><th>DEX</th>
         </tr></thead><tbody>`;
         enrichedData.forEach(row => {
+            let onlineShort = '?';
+            if (row.onlineState === 'Online') onlineShort = 'On';
+            else if (row.onlineState === 'Idle') onlineShort = 'Id';
+            else if (row.onlineState === 'Offline') onlineShort = 'Of';
+            else onlineShort = row.onlineState.substring(0,2);
+
             let statusClass = row.onlineState === 'Online' ? 'online-bg' : (row.onlineState === 'Idle' ? 'idle-bg' : 'offline-bg');
             let statusDisplay = row.statusDesc;
             if (row.statusState === 'Hospital') {
@@ -646,19 +713,21 @@
                 const secs = row.hospitalSec % 60;
                 statusDisplay = `住院 ${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
             }
+
             let ffColor = 'ff-mid';
             if (row.ff !== null) {
                 if (row.ff >= 2.0) ffColor = 'ff-high';
                 else if (row.ff < 1.0) ffColor = 'ff-low';
             }
+
             const hintArr = row.hintArr;
             html += `<tr data-online="${row.onlineState}" data-town="${row.isTown}" data-hospital="${row.hospitalSec}" data-ff="${row.ff || 0}">
-                <td><span class="${statusClass}">${row.onlineState}</span></td>
+                <td><span class="${statusClass}">${onlineShort}</span></td>
                 <td><a href="https://www.torn.com/profiles.php?XID=${row.id}" target="_blank">${row.name}</a></td>
                 <td>${row.lastDiff}</td>
                 <td>${statusDisplay}</td>
                 <td><a href="https://www.torn.com/page.php?sid=attack&user2ID=${row.id}" target="_blank">⚔️</a></td>
-                <td class="${ffColor} text-strong">${row.ffDisplay}</td>
+                <td class="${ffColor} text-strong">${row.combinedFF}</td>
                 <td class="text-strong">${row.totalDisplay}</td>
                 <td>${row.id}</td>
                 <td>${row.level || '?'}</td>
@@ -708,7 +777,7 @@
         $targetCount.text(`成员: ${visible} / ${enrichedData.length}`);
     }
 
-    addLog('🎯 帮派监控已启动 (timestamp 绕过缓存，可配置间隔)', 'success');
+    addLog('🎯 帮派监控已就绪', 'success');
 </script>
 </body>
 </html>
